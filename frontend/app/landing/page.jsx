@@ -119,7 +119,7 @@ export default function TronLanding() {
                 Productos con estética <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00f0ff] to-[#7cf5ff]">cyber-neón</span>.
               </h2>
               <p className="text-lg opacity-80">
-                Experiencia visual inspirada en TRON. Interacciones smooth y productos destacados que aparecen desde los costados.
+                Experiencia visual inspirada en TRON.  
               </p>
               <div className="flex gap-4 items-center">
                 <button className="px-6 py-3 rounded-lg bg-gradient-to-r from-[#00e5ff] to-[#00a3ff] text-black font-semibold shadow-[0_10px_30px_#00a3ff33]">Comprar ahora</button>

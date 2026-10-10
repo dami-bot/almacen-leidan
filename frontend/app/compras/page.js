@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { signOut } from "next-auth/react";
 import {
   BarChart,
   Bar,
@@ -67,12 +68,15 @@ export default function HistorialCompras() {
           window.location.href = "/login?callbackUrl=/compras";
           return;
         }
-        if (!res.ok) throw new Error(`Error ${res.status}`);
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.message || `Error ${res.status}`);
+        }
         const data = await res.json();
         setCompras(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error al cargar compras:", err);
-        setError("No se pudo cargar el historial.");
+        setError(err.message || "No se pudo cargar el historial.");
         setCompras([]);
       } finally {
         setCargando(false);
@@ -135,6 +139,18 @@ export default function HistorialCompras() {
     <div className="p-6 space-y-8">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-3xl font-bold text-gray-800">📊 Historial de Ventas</h1>
+
+        <div className="flex gap-2">
+          <a href="/admin" className="bg-gray-200 text-gray-800 px-3 py-2 rounded-lg text-sm">
+            ← Inventario
+          </a>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="bg-stone-700 text-white px-3 py-2 rounded-lg text-sm"
+          >
+            Cerrar sesión
+          </button>
+        </div>
 
         <div className="flex items-center gap-4">
           <select

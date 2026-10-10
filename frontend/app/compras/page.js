@@ -9,93 +9,111 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import jsPDF from "jspdf";
+import { money } from "@/lib/utils";
+
+// Cuántos grupos se muestran en el gráfico según el período (el resto sigue en los totales)
+const MAX_BARRAS = { diario: 30, semanal: 12, mensual: 12, anual: 20 };
+
+const corto = (d) => d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+
+/** Devuelve cómo agrupar una fecha: `orden` (para ordenar cronológicamente) y `etiqueta` (para mostrar). */
+function grupoDe(fecha, periodo) {
+  const d = new Date(fecha);
+  switch (periodo) {
+    case "semanal": {
+      const lunes = new Date(d);
+      lunes.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // semana que arranca el lunes
+      lunes.setHours(0, 0, 0, 0);
+      return { orden: lunes.getTime(), etiqueta: `Sem ${corto(lunes)}` };
+    }
+    case "mensual":
+      return {
+        orden: d.getFullYear() * 100 + d.getMonth(),
+        etiqueta: d.toLocaleDateString("es-AR", { month: "short", year: "2-digit" }),
+      };
+    case "anual":
+      return { orden: d.getFullYear(), etiqueta: String(d.getFullYear()) };
+    default:
+      return { orden: d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(), etiqueta: corto(d) };
+  }
+}
+
+const itemsDe = (compra) => {
+  if (Array.isArray(compra.items)) return compra.items;
+  try {
+    return JSON.parse(compra.items || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const totalDe = (compra) =>
+  Number.isFinite(compra.total)
+    ? compra.total
+    : itemsDe(compra).reduce((acc, item) => acc + item.precio * item.cantidad, 0);
 
 export default function HistorialCompras() {
   const [compras, setCompras] = useState([]);
   const [periodo, setPeriodo] = useState("diario");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const cargarCompras = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/compras`);
+        // Pasa por el proxy del servidor: contiene datos de clientes y requiere sesión
+        const res = await fetch("/api/admin/compras");
+        if (res.status === 401) {
+          window.location.href = "/login?callbackUrl=/compras";
+          return;
+        }
         if (!res.ok) throw new Error(`Error ${res.status}`);
         const data = await res.json();
-        console.log("Compras recibidas del backend:", data);
         setCompras(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error al cargar compras:", err);
+        setError("No se pudo cargar el historial.");
         setCompras([]);
+      } finally {
+        setCargando(false);
       }
     };
     cargarCompras();
-  }, [API_URL]);
+  }, []);
 
-
-  // 🔹 Procesar datos según período seleccionado
+  // 🔹 Ventas agrupadas por período, en orden cronológico
   const ventasProcesadas = useMemo(() => {
-    const mapa = {};
-
-    compras.forEach((compra) => {
-      const fecha = new Date(compra.date);
-      let clave = "";
-
-      switch (periodo) {
-        case "diario":
-          clave = fecha.toLocaleDateString("es-AR", {
-            day: "2-digit",
-            month: "2-digit",
-          });
-          break;
-        case "semanal":
-          clave = fecha.toLocaleDateString("es-AR", {
-            weekday: "short",
-          });
-          break;
-        case "mensual":
-          clave = fecha.toLocaleDateString("es-AR", {
-            month: "short",
-          });
-          break;
-        case "anual":
-          clave = fecha.getFullYear().toString();
-          break;
-        default:
-          clave = fecha.toLocaleDateString("es-AR");
-      }
-
-      const total = (Array.isArray(compra.items) ? compra.items : JSON.parse(compra.items || "[]"))
-        .reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-
-      mapa[clave] = (mapa[clave] || 0) + total;
-    });
-
-    return Object.entries(mapa).map(([fecha, total]) => ({ fecha, total }));
+    const grupos = new Map();
+    for (const compra of compras) {
+      const { orden, etiqueta } = grupoDe(compra.date, periodo);
+      const actual = grupos.get(orden) ?? { fecha: etiqueta, total: 0 };
+      actual.total += totalDe(compra);
+      grupos.set(orden, actual);
+    }
+    return [...grupos.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, g]) => ({ fecha: g.fecha, total: money(g.total) }))
+      .slice(-MAX_BARRAS[periodo]);
   }, [compras, periodo]);
 
-  const totalGeneral = compras.reduce((acc, compra) => {
-    const items = Array.isArray(compra.items) ? compra.items : JSON.parse(compra.items || "[]");
-    const totalCompra = items.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
-    return acc + totalCompra;
-  }, 0);
-
-
+  const totalGeneral = useMemo(() => compras.reduce((acc, c) => acc + totalDe(c), 0), [compras]);
   const cantidadCompras = compras.length;
   const promedioCompra = cantidadCompras ? totalGeneral / cantidadCompras : 0;
 
-  // 🔹 Generar PDF solo con texto
-  const generarPDF = () => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "px", format: "a4" });
+  // 🔹 PDF solo con texto (jsPDF se descarga recién al pedirlo)
+  const generarPDF = async () => {
+    const mod = await import("jspdf");
+    const JsPDF = mod.jsPDF || mod.default;
+    const doc = new JsPDF({ orientation: "portrait", unit: "px", format: "a4" });
 
     doc.setFontSize(20);
-    doc.text("📄 Reporte de Ventas", 40, 40);
+    doc.text("Reporte de Ventas", 40, 40);
 
     doc.setFontSize(14);
     doc.text(`Período: ${periodo.toUpperCase()}`, 40, 70);
-    doc.text(`Total de ventas: $${totalGeneral.toFixed(2)}`, 40, 90);
+    doc.text(`Total de ventas: $${money(totalGeneral).toFixed(2)}`, 40, 90);
     doc.text(`Cantidad de compras: ${cantidadCompras}`, 40, 110);
-    doc.text(`Promedio por compra: $${promedioCompra.toFixed(2)}`, 40, 130);
+    doc.text(`Promedio por compra: $${money(promedioCompra).toFixed(2)}`, 40, 130);
 
     doc.setFontSize(16);
     doc.text("Ventas por período:", 40, 170);
@@ -110,7 +128,7 @@ export default function HistorialCompras() {
       }
     });
 
-    doc.save(`Reporte_Ventas_${new Date().toLocaleDateString()}.pdf`);
+    doc.save(`Reporte_Ventas_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   return (
@@ -139,11 +157,14 @@ export default function HistorialCompras() {
         </div>
       </div>
 
+      {error && <p className="text-red-600">{error}</p>}
+      {cargando && <p className="text-gray-500">Cargando historial...</p>}
+
       {/* 🔹 Tarjetas resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white/70 p-4 rounded-xl shadow-md text-center">
           <p className="text-gray-600 text-sm">Total Vendido</p>
-          <h3 className="text-xl font-semibold">${totalGeneral.toFixed(2)}</h3>
+          <h3 className="text-xl font-semibold">${money(totalGeneral).toFixed(2)}</h3>
         </div>
         <div className="bg-white/70 p-4 rounded-xl shadow-md text-center">
           <p className="text-gray-600 text-sm">Compras Totales</p>
@@ -151,22 +172,22 @@ export default function HistorialCompras() {
         </div>
         <div className="bg-white/70 p-4 rounded-xl shadow-md text-center">
           <p className="text-gray-600 text-sm">Promedio por Compra</p>
-          <h3 className="text-xl font-semibold">${promedioCompra.toFixed(2)}</h3>
+          <h3 className="text-xl font-semibold">${money(promedioCompra).toFixed(2)}</h3>
         </div>
       </div>
-
 
       {/* 🔹 Gráfico dinámico */}
       <div className="bg-white/70 rounded-xl shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
           📅 Ventas {periodo.charAt(0).toUpperCase() + periodo.slice(1)}
+          <span className="text-sm font-normal text-gray-500"> (últimos {MAX_BARRAS[periodo]} como máximo)</span>
         </h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={ventasProcesadas}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="fecha" />
             <YAxis />
-            <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
             <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -185,26 +206,21 @@ export default function HistorialCompras() {
             </tr>
           </thead>
           <tbody>
-            {compras.map((c, i) => (
-              <tr key={i} className="border-b border-gray-300 hover:bg-gray-50">
+            {compras.map((c) => (
+              <tr key={c.id} className="border-b border-gray-300 hover:bg-gray-50">
+                <td className="px-4 py-2">{new Date(c.date).toLocaleDateString("es-AR")}</td>
                 <td className="px-4 py-2">
-                  {new Date(c.date).toLocaleDateString()}
+                  {c.numeroPedido ? `PED-${String(c.numeroPedido).padStart(4, "0")}` : `#${c.id}`}
                 </td>
-                <td className="px-4 py-2">{c.numeroPedido || `#${i + 1}`}</td>
                 <td className="px-4 py-2">{c.cliente || "Cliente genérico"}</td>
-                <td className="px-4 py-2">
-                  $
-                  {c.items
-                    .reduce(
-                      (sum, item) => sum + item.precio * item.cantidad,
-                      0
-                    )
-                    .toFixed(2)}
-                </td>
+                <td className="px-4 py-2">${money(totalDe(c)).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        {!cargando && compras.length === 0 && !error && (
+          <p className="mt-4 text-gray-500">Todavía no hay compras registradas.</p>
+        )}
       </div>
     </div>
   );

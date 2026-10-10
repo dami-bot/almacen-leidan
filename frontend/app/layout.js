@@ -2,8 +2,8 @@ import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata = {
-  title: "almacen leidan",
-  description: "Catálogo de productos, ofertas del día y pedidos online.",
+  title: "Almacén Leidan",
+  description: "Almacén Leidan: catálogo de productos, ofertas del día y pedidos online por WhatsApp.",
 };
 
 export default function RootLayout({ children }) {

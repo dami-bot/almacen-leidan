@@ -1,7 +1,6 @@
 "use client";
-import { FaShoppingCart } from "react-icons/fa";
 import { useRef, useEffect, useState } from "react";
-import { FaFacebookF, FaInstagram, FaEnvelope } from "react-icons/fa";
+import { FaShoppingCart, FaSearch, FaTimes, FaFacebookF, FaInstagram, FaEnvelope } from "react-icons/fa";
 import { API_URL, WHATSAPP_NUMBER } from "@/lib/config";
 import { money, optimizarImagen, mensajeDeError } from "@/lib/utils";
 
@@ -49,6 +48,7 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
   const carruselRef = useRef(null);
   const carruselPausado = useRef(false);
   const sentinelRef = useRef(null);
+  const gridRef = useRef(null);
 
   // ── Debounce de la búsqueda ──
   useEffect(() => {
@@ -58,6 +58,11 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
     }, 300);
     return () => clearTimeout(t);
   }, [busqueda]);
+
+  // ── Al buscar, la vista baja hasta los resultados (la barra fija no los tapa) ──
+  useEffect(() => {
+    if (q) gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [q]);
 
   // ── Carga de productos: una sola vía para página 1, búsqueda y páginas siguientes ──
   useEffect(() => {
@@ -234,43 +239,73 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-900 via-stone-700 to-stone-300 flex flex-col ">
-      {/* NAVBAR */}
-      <nav className="bg-gradient-to-r from-yellow-400 via-orange-300 to-red-400 shadow-lg fixed top-0 w-full z-50 h-44 flex items-center px-6 md:px-12">
-        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center ">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-nav.webp"
-            alt="Logo"
-            width={640}
-            height={360}
-            fetchPriority="high"
-            className="w-64 sm:w-52 md:w-72 lg:w-80 h-auto mb-2 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
-          />
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white drop-shadow-lg">
-            Distribuidora
-          </h1>
-        </div>
-        <div className="ml-auto flex items-center gap-4 sm:gap-6">
+    <div className="min-h-screen bg-gradient-to-br from-stone-900 via-stone-700 to-stone-300 flex flex-col">
+      {/* BARRA FIJA: marca + buscador + carrito (siempre visible al scrollear) */}
+      <header className="sticky top-0 z-30 bg-gradient-to-r from-yellow-400 via-orange-400 to-red-500 shadow-xl">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-3 py-3 sm:px-6">
+          <span className="hidden shrink-0 text-xl font-black uppercase tracking-wider text-white drop-shadow sm:block">
+            Almacén <span className="text-stone-900">Leidan</span>
+          </span>
+
+          <div className="relative flex-1">
+            <FaSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              aria-label="Buscar productos"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full rounded-full border-2 border-white/70 bg-white py-2.5 pl-11 pr-10 text-base font-semibold text-stone-800 shadow-inner placeholder:font-normal placeholder:text-stone-400 focus:border-stone-900 focus:outline-none focus:ring-4 focus:ring-white/40"
+            />
+            {busqueda && (
+              <button
+                onClick={() => setBusqueda("")}
+                aria-label="Borrar búsqueda"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-stone-400 hover:text-stone-800"
+              >
+                <FaTimes />
+              </button>
+            )}
+          </div>
+
           <button
             onClick={() => setOpenCart(true)}
             aria-label="Abrir carrito"
-            className="relative animate-pulse hover:scale-110 transition"
+            className="relative shrink-0 rounded-full bg-white/20 p-3 text-white transition hover:scale-110 hover:bg-white/30"
           >
-            <FaShoppingCart className="text-3xl sm:text-5xl text-white" />
+            <FaShoppingCart className="text-2xl" />
             {cantidadEnCarrito > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 rounded-full">
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-stone-900 px-1 text-xs font-bold text-white">
                 {cantidadEnCarrito}
               </span>
             )}
           </button>
         </div>
-      </nav>
+      </header>
 
-      {/* 🏷️ Carrusel de ofertas diarias */}
-      {ofertas.length > 0 && (
-        <div className="relative w-full overflow-hidden py-6 mb-8 mt-52 bg-blue-500/30 backdrop-blur-md rounded-xl shadow-2xl border border-x-black/20">
-          <h2 className="text-4xl text-white font-bold text-center mb-6 drop-shadow-lg">
+      {/* HERO: título grande */}
+      <section className="relative overflow-hidden px-4 pb-10 pt-12 text-center sm:pb-14 sm:pt-16">
+        <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-yellow-400/30 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-red-500/30 blur-3xl" />
+
+        <div className="relative">
+          <p className="text-lg font-bold uppercase tracking-[0.5em] text-yellow-300 drop-shadow sm:text-2xl md:text-3xl">
+            Almacén
+          </p>
+          <h1 className="bg-gradient-to-r from-yellow-200 via-orange-300 to-red-400 bg-clip-text text-7xl font-black uppercase leading-none tracking-tight text-transparent drop-shadow-2xl sm:text-9xl md:text-[10rem]">
+            Leidan
+          </h1>
+          <div className="mx-auto mt-5 h-1.5 w-32 rounded-full bg-gradient-to-r from-yellow-300 to-red-500 sm:w-48" />
+          <p className="mx-auto mt-5 max-w-xl text-base font-medium text-stone-200 sm:text-xl">
+            Hacé tu pedido online y confirmalo por WhatsApp
+          </p>
+        </div>
+      </section>
+
+      {/* 🏷️ Carrusel de ofertas diarias (se oculta mientras se busca) */}
+      {ofertas.length > 0 && !q && (
+        <div className="relative mb-8 w-full overflow-hidden rounded-2xl border border-white/10 bg-blue-500/30 py-6 shadow-2xl backdrop-blur-md">
+          <h2 className="mb-6 text-center text-3xl font-bold text-white drop-shadow-lg sm:text-4xl">
             🔥 Ofertas del día 🔥
           </h2>
           <div
@@ -286,21 +321,21 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
               return (
                 <div
                   key={item.id}
-                  className="min-w-[250px] snap-center bg-white/80 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center transform transition-transform duration-500 hover:scale-105 hover:shadow-2xl"
+                  className="flex min-w-[250px] snap-center flex-col items-center rounded-2xl bg-white/90 p-4 backdrop-blur-sm transition-transform duration-500 hover:scale-105 hover:shadow-2xl"
                 >
                   <ProductImg
                     src={item.imagenUrl}
                     alt={item.nombre}
                     width={500}
-                    className="w-full h-48 object-cover rounded-lg mb-3 shadow-md"
+                    className="mb-3 h-48 w-full rounded-xl object-cover shadow-md"
                   />
-                  <h3 className="text-lg font-bold text-gray-700 text-center">{item.nombre}</h3>
-                  <p className="text-green-600 font-semibold mb-2">${money(item.precio)}</p>
+                  <h3 className="text-center text-lg font-bold text-stone-700">{item.nombre}</h3>
+                  <p className="mb-2 text-2xl font-black text-emerald-600">${money(item.precio)}</p>
 
                   {enCarrito ? (
                     <button
                       onClick={() => quitarDelCarrito(item.id)}
-                      className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition"
+                      className="w-full rounded-xl bg-red-500 py-2 font-bold text-white transition hover:bg-red-600"
                     >
                       Quitar del carrito
                     </button>
@@ -308,7 +343,7 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
                     <button
                       onClick={() => agregarAlCarrito(item)}
                       disabled={item.stock === 0}
-                      className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition disabled:opacity-50"
+                      className="w-full rounded-xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-bold text-white transition hover:brightness-110 active:scale-95 disabled:opacity-50"
                     >
                       {item.stock === 0 ? "Sin stock" : "Agregar al carrito"}
                     </button>
@@ -411,49 +446,56 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
         <div onClick={() => setOpenCart(false)} className="fixed inset-0 bg-black/40 z-40"></div>
       )}
 
-      <main className={`container mx-auto p-4 pt-5 ${ofertas.length === 0 ? "mt-52" : ""}`}>
-        {/* 🔍 Input de búsqueda */}
-        <div className="max-w-md mx-auto my-6">
-          <input
-            type="text"
-            placeholder="Buscar productos..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full p-3 text-2xl text-amber-50 font-bold rounded-lg border border-gray-300 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-600"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ">
+      <main className="container mx-auto p-4 pt-2">
+        <div ref={gridRef} className="scroll-mt-24 grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
           {productos.map((producto) => (
             <div
               key={producto.id}
-              className="bg-white rounded-xl shadow-lg p-2 flex flex-col items-center gap-1 group"
+              className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
             >
-              <ProductImg
-                src={producto.imagenUrl}
-                alt={producto.nombre}
-                className="w-full h-48 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform duration-300"
-              />
-              <h2 className="text-lg font-bold text-gray-700 text-center">{producto.nombre}</h2>
-              <p className="text-gray-500 text-center">
-                Stock: <span className="font-semibold">{producto.stock}</span>
-              </p>
-              <p className="text-gray-500 text-center">
-                Precio: <span className="font-semibold">${money(producto.precio)}</span>
-              </p>
-              <button
-                onClick={() => agregarAlCarrito(producto)}
-                className="w-2/3 hover:scale-105 transition bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:hover:scale-100"
-                disabled={producto.stock === 0}
-              >
-                {producto.stock === 0 ? "Sin stock" : "Agregar al carrito"}
-              </button>
+              <div className="relative overflow-hidden">
+                <ProductImg
+                  src={producto.imagenUrl}
+                  alt={producto.nombre}
+                  className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-110 sm:h-48"
+                />
+                {producto.ofertaDiaria && (
+                  <span className="absolute right-2 top-2 rounded-full bg-yellow-400 px-2 py-1 text-xs font-extrabold text-stone-900 shadow">
+                    🔥 Oferta
+                  </span>
+                )}
+                {producto.stock === 0 && (
+                  <span className="absolute left-2 top-2 rounded-full bg-stone-800/90 px-2 py-1 text-xs font-bold text-white">
+                    Sin stock
+                  </span>
+                )}
+                {producto.stock > 0 && producto.stock <= 3 && (
+                  <span className="absolute left-2 top-2 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white shadow">
+                    ¡Últimas {producto.stock}!
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-1 flex-col gap-1 p-3">
+                <h2 className="line-clamp-2 min-h-[2.5rem] text-base font-bold leading-tight text-stone-800 sm:text-lg">
+                  {producto.nombre}
+                </h2>
+                <p className="text-2xl font-black text-emerald-600">${money(producto.precio)}</p>
+                <p className="text-xs text-stone-500">Stock: {producto.stock}</p>
+                <button
+                  onClick={() => agregarAlCarrito(producto)}
+                  disabled={producto.stock === 0}
+                  className="mt-auto w-full rounded-xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-bold text-white transition hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                >
+                  {producto.stock === 0 ? "Sin stock" : "Agregar al carrito"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
 
         {/* Estados de la lista */}
-        <div className="text-center text-stone-100 py-8">
+        <div className="py-8 text-center text-stone-100">
           {loading && <p>Cargando productos...</p>}
           {error && (
             <div>
@@ -463,7 +505,7 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
                   setPage(1);
                   setReintento((n) => n + 1);
                 }}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
               >
                 Reintentar
               </button>
@@ -479,10 +521,13 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
       </main>
 
       {/* FOOTER */}
-      <footer className="text-center text-gray-300 py-6 mt-12 bg-stone-900/70">
-        Distribuidora &copy; {new Date().getFullYear()} | Todos los derechos reservados - DAMI-WEB
-        <div className="justify-center flex gap-4 text-lg mt-2">
-          <a href="mailto:contacto@distribuidora.com" aria-label="Email" className="hover:text-blue-600">
+      <footer className="mt-12 bg-stone-900/70 py-6 text-center text-gray-300">
+        <p className="font-black uppercase tracking-widest text-yellow-300">Almacén Leidan</p>
+        <p className="mt-1 text-sm">
+          &copy; {new Date().getFullYear()} | Todos los derechos reservados - DAMI-WEB
+        </p>
+        <div className="mt-3 flex justify-center gap-4 text-lg">
+          <a href="mailto:contacto@distribuidora.com" aria-label="Email" className="hover:text-yellow-300">
             <FaEnvelope />
           </a>
           <a
@@ -490,7 +535,7 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Facebook"
-            className="hover:text-blue-600"
+            className="hover:text-yellow-300"
           >
             <FaFacebookF />
           </a>
@@ -499,7 +544,7 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"
-            className="hover:text-blue-600"
+            className="hover:text-yellow-300"
           >
             <FaInstagram />
           </a>

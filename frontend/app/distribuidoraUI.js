@@ -211,7 +211,7 @@ export default function DistribuidoraUI({ initialProductos = [], initialOfertas 
       items.forEach((item) => {
         mensaje += `- ${item.nombre}\n   ${item.cantidad} x $${money(item.precio)} = $${money(item.precio * item.cantidad)}\n`;
       });
-      mensaje += `\n💰 *Total:* $${money(pedido.total).toFixed(2)}\n\n✅ Gracias por tu compra.`;
+      mensaje += `\n💰 *Total:* $${money(pedido.total).toFixed(2)}\n\n✅ GRACIAS BUENOS DIAS!!!.`;
 
       const url = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(mensaje)}`;
       if (ventana) ventana.location.href = url;

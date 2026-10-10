@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { API_URL, WHATSAPP_NUMBER } from "@/lib/config";
 import { fmtFecha, aInputFecha, optimizarImagen, mensajeDeError } from "@/lib/utils";
+import { signOut } from "next-auth/react";
 
 const ADMIN = "/api/admin"; // proxy del servidor: verifica la sesión y agrega la clave del backend
 const PAGINA_ADMIN = 200;
@@ -222,6 +223,17 @@ export default function Productos() {
     <div className="flex flex-col h-screen bg-gray-100">
       {/* 🔹 CABECERA FIJA CON FORMULARIO Y FILTROS */}
       <div className="sticky top-0 z-20 bg-gray-100 p-4 border-b shadow-sm">
+        <div className="flex justify-end gap-2 mb-2">
+          <a href="/compras" className="bg-blue-600 text-white px-3 py-1 rounded text-sm">
+            📊 Ver ventas
+          </a>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="bg-stone-700 text-white px-3 py-1 rounded text-sm"
+          >
+            Cerrar sesión
+          </button>
+        </div>
         <div className="backdrop-blur-md bg-white/10 p-0 rounded-2xl shadow-lg mb-4 text-center">
           <h1 className="text-3xl font-bold">Inventario de Productos</h1>
           <div className="flex justify-between items-center mb-4">
